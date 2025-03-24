@@ -1,0 +1,8 @@
+flask
+flask-cors
+duckduckgo-search
+beautifulsoup4
+scikit-learn
+numpy
+requests
+gunicorn  # Required for Render
