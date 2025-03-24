@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
@@ -5,7 +6,7 @@ import re
 import sqlite3
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
-from duckduckgo_search import DDGS  # Updated import
+from duckduckgo_search import DDGS
 
 app = Flask(__name__)
 
@@ -22,8 +23,8 @@ def scrape_duckduckgo_search(query, num_results=10):
 
 # ✅ Keyword Extraction Function
 def extract_keywords(text):
-    words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())  # Only words with 4+ letters
-    return list(set(words))  # Remove duplicates
+    words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+    return list(set(words))
 
 # ✅ Keyword Clustering Function
 def cluster_keywords(keywords, num_clusters=5):
@@ -50,7 +51,7 @@ def store_keywords_in_db(keyword_clusters):
     conn = sqlite3.connect("seo_keywords.db")
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS keywords (cluster INTEGER, keyword TEXT)")
-
+    
     for cluster, keywords in keyword_clusters.items():
         for keyword in keywords:
             cursor.execute("INSERT INTO keywords (cluster, keyword) VALUES (?, ?)", (cluster, keyword))
@@ -63,17 +64,13 @@ def store_keywords_in_db(keyword_clusters):
 def scrape_and_cluster():
     data = request.json
     query = data.get("query")
-    links = scrape_duckduckgo_search(query, num_results=5)  # Reduce from 10 to 5
-
     if not query:
         return jsonify({"error": "No query provided"}), 400
-
-    print(f"🔍 Scraping DuckDuckGo for: {query}")
-    links = scrape_duckduckgo_search(query)
     
+    links = scrape_duckduckgo_search(query, num_results=5)
     if not links:
         return jsonify({"error": "No links found. DuckDuckGo might not have enough data."}), 500
-
+    
     all_keywords = []
     for link in links:
         try:
@@ -81,28 +78,22 @@ def scrape_and_cluster():
             page.raise_for_status()
             soup = BeautifulSoup(page.text, "html.parser")
             text = soup.get_text()
-
             if len(text) < 500:
-                print(f"⚠️ Skipping {link} (not enough content).")
                 continue
-
-            print(f"✅ Scraped {len(text)} characters from {link}")
             keywords = extract_keywords(text)
             all_keywords.extend(keywords)
-
         except Exception as e:
             print(f"❌ Skipping {link} due to error: {e}")
 
     all_keywords = list(set(all_keywords))
     keyword_clusters = cluster_keywords(all_keywords)
-
     if "error" in keyword_clusters:
         return jsonify(keyword_clusters), 400
-
+    
     store_keywords_in_db(keyword_clusters)
-
     return jsonify({"message": "Scraping & clustering complete", "clusters": keyword_clusters})
 
 # ✅ Run Flask Server
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.getenv("PORT", 5000))  # Use the PORT environment variable or default to 5000
+    app.run(host="0.0.0.0", port=port, debug=True)
