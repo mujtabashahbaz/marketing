@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # Backend API URL
-API_URL = "https://marketing-03yr.onrender.com/scrape"
+API_URL = "https://marketing-2-l9t0.onrender.com/scrape"
 
 # Streamlit UI
 st.title("🔍 SEO Automation Tool")
